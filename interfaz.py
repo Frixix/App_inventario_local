@@ -51,7 +51,7 @@ class VentanaLogin(tk.Tk):
         self.entrada_contraseña.pack(fill=tk.X, pady=(0, 30))
         
         # Botón principal - Ingresar (grande y prominente)
-        btn_login = tk.Button(frame, text="▶ INGRESAR", 
+        btn_login = tk.Button(frame, text="INGRESAR", 
                              command=self.hacer_login,
                              bg="#4CAF50", fg="white",
                              font=("Arial", 12, "bold"),
@@ -174,7 +174,7 @@ class AplicacionInventario(tk.Tk):
     def crear_pestaña_productos(self):
         """Crea pestaña de gestión de productos"""
         frame = ttk.Frame(self.notebook)
-        self.notebook.add(frame, text="📦 Productos")
+        self.notebook.add(frame, text="Productos")
         
         # Panel de entrada
         frame_entrada = ttk.LabelFrame(frame, text="Crear Nuevo Producto", padding="10")
@@ -230,7 +230,7 @@ class AplicacionInventario(tk.Tk):
     def crear_pestaña_entradas(self):
         """Crea pestaña de entradas (compras)"""
         frame = ttk.Frame(self.notebook)
-        self.notebook.add(frame, text="📥 Entradas")
+        self.notebook.add(frame, text="Entradas")
         
         # Panel de entrada
         frame_entrada = ttk.LabelFrame(frame, text="Registrar Entrada", padding="10")
@@ -278,7 +278,7 @@ class AplicacionInventario(tk.Tk):
     def crear_pestaña_salidas(self):
         """Crea pestaña de salidas (ventas)"""
         frame = ttk.Frame(self.notebook)
-        self.notebook.add(frame, text="📤 Salidas")
+        self.notebook.add(frame, text="Salidas")
         
         # Panel de entrada
         frame_entrada = ttk.LabelFrame(frame, text="Registrar Salida", padding="10")
@@ -327,7 +327,7 @@ class AplicacionInventario(tk.Tk):
     def crear_pestaña_facturas(self):
         """Crea pestaña de gestión de facturas"""
         frame = ttk.Frame(self.notebook)
-        self.notebook.add(frame, text="🧾 Facturas")
+        self.notebook.add(frame, text="Facturas")
         
         # Panel de control
         frame_control = ttk.LabelFrame(frame, text="Nueva Factura", padding="10")
@@ -401,7 +401,7 @@ class AplicacionInventario(tk.Tk):
     def crear_pestaña_reportes(self):
         """Crea pestaña de reportes"""
         frame = ttk.Frame(self.notebook)
-        self.notebook.add(frame, text="📊 Reportes")
+        self.notebook.add(frame, text="Reportes")
         
         # Estadísticas
         frame_stats = ttk.LabelFrame(frame, text="Estadísticas General", padding="10")
@@ -683,7 +683,7 @@ class AplicacionInventario(tk.Tk):
         productos = self.logica.obtener_productos()
         
         for p in productos:
-            estado = "✓ OK" if p['stock'] >= p['stock_minimo'] else "⚠ BAJO"
+            estado = "OK" if p['stock'] >= p['stock_minimo'] else "BAJO"
             self.tabla_productos.insert("", tk.END, values=(
                 p['id'], p['nombre'], f"${p['precio']:.2f}", 
                 p['stock'], p['stock_minimo'], estado
