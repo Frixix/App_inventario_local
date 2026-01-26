@@ -1,0 +1,29 @@
+# Dependencias de la Aplicación
+
+# Requeridas (incluidas en Python por defecto)
+# - tkinter (GUI)
+# - sqlite3 (Base de datos)
+
+# Opcionales (para funcionalidades adicionales)
+
+# Para generar PDF desde facturas
+reportlab==4.0.7
+
+# Para trabajar con Excel (futuro)
+openpyxl==3.10.1
+
+# Para encriptación de contraseñas (futuro)
+bcrypt==4.0.1
+
+# Para conexión a bases de datos en la nube (futuro)
+mysql-connector-python==8.0.33
+
+# Para API REST (futuro)
+flask==3.0.0
+flask-cors==4.0.0
+
+# Para tests
+pytest==7.4.0
+
+# Para linting
+pylint==3.0.0
