@@ -271,4 +271,8 @@ Para cambios o mejoras, modifique los archivos correspondientes:
 
 ---
 
+## Versión 
+
+Version 1.2.1
+
 
