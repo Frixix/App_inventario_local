@@ -1,19 +1,19 @@
 # 🏪 Sistema de Inventario Local - Documentación
 
-## 📋 Descripción General
+## Descripción General
 
 Aplicación de escritorio para gestión de inventario con interfaz de 3 capas (Interfaz, Lógica, Datos). Permite:
 
-- ✅ Gestión de productos (crear, ver stock)
-- ✅ Registrar entradas (compras/reposición)
-- ✅ Registrar salidas (ventas)
-- ✅ Generación de facturas electrónicas
-- ✅ Reportes y estadísticas
-- ✅ Base de datos SQLite integrada
+-  Gestión de productos (crear, ver stock)
+-  Registrar entradas (compras/reposición)
+-  Registrar salidas (ventas)
+-  Generación de facturas electrónicas
+-  Reportes y estadísticas
+-  Base de datos SQLite integrada
 
 ---
 
-## 🏗️ Estructura de 3 Capas
+##  Estructura de 3 Capas
 
 ```
 ┌─────────────────────────────────────┐
@@ -42,7 +42,7 @@ Aplicación de escritorio para gestión de inventario con interfaz de 3 capas (I
 
 ---
 
-## 📊 Base de Datos - Esquema
+##  Base de Datos - Esquema
 
 ### Tabla: usuarios
 ```sql
@@ -134,26 +134,26 @@ Contraseña: 1234
 
 ---
 
-## 📖 Guía de Uso
+##  Guía de Uso
 
-### 1️⃣ Productos
+### 1️ Productos
 - **Crear Producto**: Ingrese nombre, precio, stock inicial y stock mínimo
 - El sistema alerta cuando el stock está bajo
 - Lista actualizada en tiempo real
 
-### 2️⃣ Entradas (Compras/Reposición)
+### 2️ Entradas (Compras/Reposición)
 - Seleccione producto de la lista
 - Ingrese cantidad y precio unitario
 - Ingrese nombre del proveedor (opcional)
 - El stock se actualiza automáticamente
 
-### 3️⃣ Salidas (Ventas)
+### 3️ Salidas (Ventas)
 - Seleccione producto de la lista
 - Ingrese cantidad a vender
 - Ingrese nombre del cliente (opcional)
 - El sistema verifica stock disponible
 
-### 4️⃣ Facturas
+### 4️ Facturas
 **Dos opciones:**
 
 **Opción A: Factura paso a paso**
@@ -168,24 +168,24 @@ Contraseña: 1234
 2. Haga clic en "Crear Factura"
 3. Se crea factura con el producto
 
-### 5️⃣ Reportes
+### 5️ Reportes
 - Estadísticas generales
 - Productos bajo stock (con alertas)
 - Botón de actualización
 
 ---
 
-## 📄 Factura Electrónica - Parámetros Incluidos
+##  Factura Electrónica - Parámetros Incluidos
 
-✅ Número único (FAC-YYYYMMDD-000001)  
-✅ Fecha de emisión  
-✅ Datos del vendedor (empresa)  
-✅ Datos del cliente  
-✅ Productos y cantidades  
-✅ Precios unitarios  
-✅ Subtotal  
-✅ IVA (19% por defecto, configurable)  
-✅ Total  
+ Número único (FAC-YYYYMMDD-000001)  
+ Fecha de emisión  
+ Datos del vendedor (empresa)  
+ Datos del cliente  
+ Productos y cantidades  
+ Precios unitarios  
+ Subtotal  
+ IVA (19% por defecto, configurable)  
+ Total  
 
 **Formatos de exportación:**
 - TXT (texto simple)
@@ -194,7 +194,7 @@ Contraseña: 1234
 
 ---
 
-## 💾 Archivos Generados
+##  Archivos Generados
 
 ### Base de Datos
 - `inventario.db` - SQLite (se crea automáticamente)
@@ -205,7 +205,7 @@ Contraseña: 1234
 
 ---
 
-## 🔒 Consideraciones de Seguridad
+##  Consideraciones de Seguridad
 
 ### Para producción:
 - Cambiar credenciales predeterminadas
@@ -225,7 +225,7 @@ db.db.commit()
 
 ---
 
-## 🔧 Extensiones Futuras
+##  Extensiones Futuras
 
 ### Fase 2:
 - [ ] Integración con DIAN (factura electrónica real)
@@ -246,7 +246,7 @@ db.db.commit()
 
 ---
 
-## 📧 Contacto y Soporte
+##  Contacto y Soporte
 
 Para cambios o mejoras, modifique los archivos correspondientes:
 - **Interfaz**: `interfaz.py`
@@ -256,7 +256,7 @@ Para cambios o mejoras, modifique los archivos correspondientes:
 
 ---
 
-## 📋 Checklist de Implementación
+##  Checklist de Implementación
 
 ✅ Sistema de login con usuario/contraseña  
 ✅ Gestión de productos (CRUD)  
@@ -271,13 +271,4 @@ Para cambios o mejoras, modifique los archivos correspondientes:
 
 ---
 
-## 🎯 Próximos Pasos
 
-1. **Prueba la aplicación** con datos de ejemplo
-2. **Crea productos** de prueba
-3. **Registra entradas y salidas**
-4. **Genera una factura completa**
-5. **Exporta y verifica** la factura
-6. **Adapta los datos** de tu empresa
-
-¡Aplicación lista para usar! 🎉
