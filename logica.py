@@ -30,7 +30,11 @@ class LogicaInventario:
         resultado = self.db.verificar_usuario(usuario, contrasena)
         if resultado:
             self.usuario_actual = resultado
+            # ✅ DEBUGGING: Log para verificar login exitoso
+            print(f"✅ Login exitoso - Usuario: {usuario}")
+            print(f"   Datos: {self.usuario_actual}")
             return True
+        print(f"❌ Login fallido - Usuario: {usuario}")
         return False
     
     def logout(self):
@@ -41,11 +45,38 @@ class LogicaInventario:
         """Obtiene datos del usuario actual"""
         return self.usuario_actual
     
+    def diagnosticar_usuario(self):
+        """Función de diagnóstico para debugging"""
+        print("\n" + "="*50)
+        print("🔍 DIAGNÓSTICO DE USUARIO")
+        print("="*50)
+        print(f"Usuario actual: {self.usuario_actual}")
+        print(f"Tipo: {type(self.usuario_actual)}")
+        if self.usuario_actual:
+            print(f"Es diccionario: {isinstance(self.usuario_actual, dict)}")
+            if isinstance(self.usuario_actual, dict):
+                print(f"Claves disponibles: {list(self.usuario_actual.keys())}")
+                print(f"Valores:")
+                for key, value in self.usuario_actual.items():
+                    print(f"  - {key}: {value}")
+        print(f"Es administrador: {self.es_administrador()}")
+        print("="*50 + "\n")
+    
     def es_administrador(self):
         """Verifica si el usuario actual es administrador"""
+        # ✅ CORRECCIÓN: Validación robusta para evitar NoneType errors
         if not self.usuario_actual:
             return False
-        return self.usuario_actual.get('nombre') == 'Administrador'
+        
+        # Verificar que es un diccionario válido
+        if not isinstance(self.usuario_actual, dict):
+            return False
+        
+        # Verificar si el nombre es 'Administrador' O si el usuario es 'admin'
+        nombre = self.usuario_actual.get('nombre', '')
+        usuario = self.usuario_actual.get('usuario', '')
+        
+        return nombre == 'Administrador' or usuario == 'admin'
     
     # ==================== PRODUCTOS ====================
     def crear_producto(self, nombre, precio, stock=0, stock_minimo=10, descripcion=None):

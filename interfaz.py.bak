@@ -1,0 +1,1174 @@
+"""
+CAPA DE INTERFAZ - GUI con customtkinter
+Aplicación de Escritorio para Inventario - Diseño Moderno
+"""
+
+import customtkinter as ctk
+from tkinter import messagebox, scrolledtext, ttk
+from datetime import datetime
+from logica import LogicaInventario
+from facturas import GeneradorFactura
+
+# Configuración de tema
+ctk.set_appearance_mode("light")
+
+# Colores personalizados
+FONDO = "#ECEFF1"
+TARJETA = "#FFFFFF"
+TEXTO = "#1F2933"
+PRINCIPAL = "#0F766E"
+SECUNDARIO = "#9CA3AF"
+ERROR = "#DC2626"
+
+class UIHelper:
+    """Funciones auxiliares para creación de widgets"""
+    
+    @staticmethod
+    def crear_label_entrada(parent, label_text, placeholder="", is_password=False, **kwargs):
+        """Crea label + entrada juntos"""
+        ctk.CTkLabel(parent, text=label_text, font=FUENTE_LABEL, text_color=TEXTO).pack(anchor="w")
+        entrada = ctk.CTkEntry(parent, placeholder_text=placeholder, height=COMPO_ALTURA,
+                              corner_radius=COMPO_ESQUINA, show="*" if is_password else None,
+                              border_width=1, border_color=SECUNDARIO, fg_color=TARJETA,
+                              text_color=TEXTO, **kwargs)
+        entrada.pack(fill=ctk.X, pady=(0, 10))
+        return entrada
+    
+    @staticmethod
+    def crear_boton(parent, text, command, fg_color=PRINCIPAL, hover_color="#0D5C5F", 
+                   text_color="white", **kwargs):
+        """Crea botón con estilos estándar"""
+        btn = ctk.CTkButton(parent, text=text, command=command, fg_color=fg_color,
+                           hover_color=hover_color, text_color=text_color,
+                           height=BOTON_ALTURA, corner_radius=BOTON_ESQUINA,
+                           font=("Segoe UI", 11, "bold"), **kwargs)
+        return btn
+    
+    @staticmethod
+    def extraer_producto_id(combo_str):
+        """Extrae ID del producto desde string 'ID - Nombre'"""
+        try:
+            return int(combo_str.split(" ")[0]) if combo_str else None
+        except (ValueError, IndexError):
+            return None
+
+class VentanaLogin(ctk.CTk):
+    """Ventana de login moderna"""
+    
+    def __init__(self):
+        super().__init__()
+        self.title("Inventario - Login")
+        self.geometry("420x380")
+        self.resizable(False, False)
+        self.configure(fg_color=FONDO)
+        
+        try:
+            self.logica = LogicaInventario()
+            self.crearUI()
+        except Exception as e:
+            messagebox.showerror("Error de Inicialización", 
+                                f"Error al cargar la aplicación:\n{str(e)}")
+            self.destroy()
+    
+    def crearUI(self):
+        """Crea interfaz de login moderna"""
+        # Frame principal centrado
+        main_frame = ctk.CTkFrame(self, fg_color=FONDO)
+        main_frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Tarjeta de login
+        card = ctk.CTkFrame(main_frame, fg_color=TARJETA, corner_radius=12)
+        card.pack(fill=ctk.BOTH, expand=True)
+        
+        # Padding interno
+        inner = ctk.CTkFrame(card, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, expand=True, padx=30, pady=30)
+        
+        # Título y subtítulo
+        ctk.CTkLabel(inner, text="Sistema de Inventario",
+                    font=("Segoe UI", 24, "bold"), text_color=TEXTO).pack(pady=(0, 10))
+        ctk.CTkLabel(inner, text="Ingrese sus credenciales",
+                    font=("Segoe UI", 12), text_color=SECUNDARIO).pack(pady=(0, 25))
+        
+        # Campos de entrada
+        self.entrada_usuario = UIHelper.crear_label_entrada(inner, "Usuario:", "admin")
+        self.entrada_contraseña = UIHelper.crear_label_entrada(inner, "Contraseña:", "1234", 
+                                                              is_password=True)
+        
+        # Botones
+        UIHelper.crear_boton(inner, "INGRESAR", self.hacer_login, 
+                            text_color="white", height=45).pack(fill=ctk.X, pady=(0, 12))
+        UIHelper.crear_boton(inner, "Salir", self.salir_app, fg_color=SECUNDARIO,
+                            hover_color="#8B92A8", height=40).pack(fill=ctk.X)
+        
+        self.entrada_usuario.focus()
+        for entrada in [self.entrada_usuario, self.entrada_contraseña]:
+            entrada.bind("<Return>", lambda e: self.hacer_login())
+    
+    def hacer_login(self):
+        """Valida credenciales"""
+        try:
+            usuario = self.entrada_usuario.get().strip()
+            contraseña = self.entrada_contraseña.get()
+            
+            if not usuario or not contraseña:
+                messagebox.showerror("Error", "Complete todos los campos")
+                return
+            
+            if self.logica.login(usuario, contraseña):
+                self.destroy()
+                try:
+                    app = AplicacionInventario(self.logica)
+                    app.mainloop()
+                except Exception as e:
+                    messagebox.showerror("Error", 
+                        f"Error al abrir la aplicación:\n{str(e)}")
+            else:
+                messagebox.showerror("Error", "Usuario o contraseña incorrectos")
+                self.entrada_contraseña.delete(0, ctk.END)
+                self.entrada_usuario.focus()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al iniciar sesión:\n{str(e)}")
+    
+    def salir_app(self):
+        """Cierra la aplicación correctamente"""
+        if messagebox.askokcancel("Salir", "¿Desea cerrar la aplicación?"):
+            self.destroy()
+
+
+class AplicacionInventario(ctk.CTk):
+    """Aplicación principal de inventario - Diseño Moderno"""
+    
+    def __init__(self, logica):
+        super().__init__()
+        self.title("Sistema de Inventario Local")
+        self.geometry("1000x700")
+        self.configure(fg_color=FONDO)
+        self.logica = logica
+        self.generador_facturas = GeneradorFactura(logica)
+        self.factura_actual = None
+        self.timer_actualizacion = None  # Timer para actualización automática
+        
+        print("\n" + "="*60)
+        print("INICIANDO APLICACIÓN...")
+        print("="*60)
+        
+        print("1. Creando UI...")
+        self.crearUI()
+        print("   ✓ UI creada")
+        
+        print("2. Verificando que tabla_productos existe...")
+        if hasattr(self, 'tabla_productos'):
+            print("   ✓ tabla_productos existe")
+        else:
+            print("   ✗ ERROR: tabla_productos NO existe")
+        
+        print("3. Actualizando datos iniciales...")
+        self.actualizar_datos()
+        print("   ✓ Datos iniciales cargados")
+        
+        print("4. Iniciando actualización automática...")
+        self.iniciar_actualizacion_automatica()
+        print("   ✓ Actualización automática iniciada")
+        print("="*60 + "\n")
+        
+        # Limpiar timer cuando se cierre la ventana
+        self.protocol("WM_DELETE_WINDOW", self.cerrar_ventana)
+    
+    def cerrar_ventana(self):
+        """Limpia recursos y cierra la aplicación"""
+        if self.timer_actualizacion:
+            self.after_cancel(self.timer_actualizacion)
+        self.destroy()
+    
+    def iniciar_actualizacion_automatica(self):
+        """Inicia el sistema de actualización automática periódica"""
+        self._actualizar_periodico()
+    
+    def _actualizar_periodico(self):
+        """Actualiza datos periódicamente cada 10 segundos"""
+        try:
+            self.actualizar_datos()
+        except Exception as e:
+            print(f"Error en actualización periódica: {e}")
+        
+        # Programar siguiente actualización (10000 ms = 10 segundos)
+        self.timer_actualizacion = self.after(10000, self._actualizar_periodico)
+    
+    def crearUI(self):
+        """Crea interfaz principal moderna"""
+        # Barra superior
+        top_bar = ctk.CTkFrame(self, fg_color=TARJETA, height=60)
+        top_bar.pack(fill=ctk.X, padx=0, pady=0)
+        top_bar.pack_propagate(False)
+        
+        usuario = self.logica.get_usuario_actual()
+        titulo = ctk.CTkLabel(top_bar, text="Sistema de Inventario",
+                             font=("Segoe UI", 16, "bold"),
+                             text_color=PRINCIPAL)
+        titulo.pack(side=ctk.LEFT, padx=20, pady=15)
+        
+        user_label = ctk.CTkLabel(top_bar, text=f"Bienvenido: {usuario['nombre']}",
+                                 font=("Segoe UI", 10),
+                                 text_color=SECUNDARIO)
+        user_label.pack(side=ctk.RIGHT, padx=20, pady=15)
+        
+        # Notebook (pestañas)
+        self.notebook = ctk.CTkTabview(self, fg_color=FONDO,
+                                       segmented_button_fg_color=SECUNDARIO,
+                                       segmented_button_selected_color=PRINCIPAL,
+                                       text_color=TEXTO)
+        self.notebook.pack(fill=ctk.BOTH, expand=True, padx=15, pady=15)
+        
+        # Pestañas
+        self.crear_pestaña_productos()
+        self.crear_pestaña_entradas()
+        self.crear_pestaña_salidas()
+        self.crear_pestaña_facturas()
+        self.crear_pestaña_reportes()
+    
+    def crear_pestaña_productos(self):
+        """Crea pestaña de productos"""
+        frame = self.notebook.add("Productos")
+        frame.configure(fg_color=FONDO)
+        
+        # Tarjeta de entrada
+        card = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner = ctk.CTkFrame(card, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner, text="Crear Nuevo Producto",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 15))
+        
+        # Grid para campos
+        ctk.CTkLabel(inner, text="Nombre:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_nombre = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_nombre.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Precio:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_precio = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_precio.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Stock:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_stock = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_stock.insert(0, "0")
+        self.entrada_stock.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Stock Minimo:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_stock_min = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_stock_min.insert(0, "10")
+        self.entrada_stock_min.pack(fill=ctk.X, pady=(0, 15))
+        
+        btn = ctk.CTkButton(inner, text="Crear Producto",
+                           command=self.crear_producto,
+                           fg_color=PRINCIPAL,
+                           hover_color="#0D5C5F",
+                           text_color="white",
+                           height=40,
+                           corner_radius=8,
+                           font=("Segoe UI", 11, "bold"))
+        btn.pack(fill=ctk.X)
+        
+        # Tarjeta de lista
+        card2 = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card2.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+        
+        inner2 = ctk.CTkFrame(card2, fg_color=TARJETA)
+        inner2.pack(fill=ctk.BOTH, expand=True, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner2, text="Lista de Productos",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 10))
+        
+        # Tabla simple (usando Treeview básico para ahora)
+        from tkinter import ttk
+        columnas = ("ID", "Nombre", "Precio", "Stock", "Estado")
+        self.tabla_productos = ttk.Treeview(inner2, columns=columnas, height=12)
+        
+        self.tabla_productos.column("#0", width=0, stretch=False)
+        for col in columnas:
+            self.tabla_productos.column(col, anchor="center", width=150)
+            self.tabla_productos.heading(col, text=col)
+        
+        self.tabla_productos.pack(fill=ctk.BOTH, expand=True, pady=(0, 10))
+        
+        # Panel de modo administrador
+        if self.logica.es_administrador():
+            admin_card = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+            admin_card.pack(fill=ctk.X, padx=10, pady=10)
+            
+            admin_inner = ctk.CTkFrame(admin_card, fg_color=TARJETA)
+            admin_inner.pack(fill=ctk.BOTH, padx=15, pady=15)
+            
+            ctk.CTkLabel(admin_inner, text="🔧 Modo Administrador - Gestión de Stock",
+                        font=("Segoe UI", 12, "bold"),
+                        text_color="#DC2626").pack(anchor="w", pady=(0, 15))
+            
+            # Selector de producto
+            ctk.CTkLabel(admin_inner, text="Seleccionar Producto:", text_color=TEXTO).pack(anchor="w")
+            self.combo_admin_producto = ctk.CTkComboBox(admin_inner, height=35, corner_radius=6)
+            self.combo_admin_producto.pack(fill=ctk.X, pady=(0, 15))
+            
+            # Stock actual
+            self.label_stock_actual = ctk.CTkLabel(admin_inner, text="Stock Actual: -",
+                                                   font=("Segoe UI", 11),
+                                                   text_color=TEXTO)
+            self.label_stock_actual.pack(anchor="w", pady=(0, 10))
+            
+            # Botones de agregar/quitar
+            btn_frame1 = ctk.CTkFrame(admin_inner, fg_color=TARJETA)
+            btn_frame1.pack(fill=ctk.X, pady=(0, 10))
+            
+            ctk.CTkLabel(btn_frame1, text="Cantidad:", text_color=TEXTO).pack(side=ctk.LEFT, padx=(0, 10))
+            self.entrada_admin_cantidad = ctk.CTkEntry(btn_frame1, height=35, width=100, corner_radius=6)
+            self.entrada_admin_cantidad.pack(side=ctk.LEFT, padx=(0, 10))
+            
+            btn_agregar = ctk.CTkButton(btn_frame1, text="➕ Agregar",
+                                       command=self.admin_agregar_stock,
+                                       fg_color="#16a34a",
+                                       hover_color="#15803d",
+                                       text_color="white",
+                                       height=35,
+                                       corner_radius=6,
+                                       font=("Segoe UI", 10, "bold"))
+            btn_agregar.pack(side=ctk.LEFT, padx=(0, 5), fill=ctk.X, expand=True)
+            
+            btn_quitar = ctk.CTkButton(btn_frame1, text="➖ Quitar",
+                                      command=self.admin_quitar_stock,
+                                      fg_color="#DC2626",
+                                      hover_color="#B91C1C",
+                                      text_color="white",
+                                      height=35,
+                                      corner_radius=6,
+                                      font=("Segoe UI", 10, "bold"))
+            btn_quitar.pack(side=ctk.LEFT, fill=ctk.X, expand=True)
+            
+            # Asignar valor directo
+            btn_frame2 = ctk.CTkFrame(admin_inner, fg_color=TARJETA)
+            btn_frame2.pack(fill=ctk.X)
+            
+            ctk.CTkLabel(btn_frame2, text="Asignar Stock:", text_color=TEXTO).pack(side=ctk.LEFT, padx=(0, 10))
+            self.entrada_admin_stock_directo = ctk.CTkEntry(btn_frame2, height=35, width=100, corner_radius=6)
+            self.entrada_admin_stock_directo.pack(side=ctk.LEFT, padx=(0, 10))
+            
+            btn_asignar = ctk.CTkButton(btn_frame2, text="✓ Asignar",
+                                       command=self.admin_asignar_stock,
+                                       fg_color="#0F766E",
+                                       hover_color="#0D5C5F",
+                                       text_color="white",
+                                       height=35,
+                                       corner_radius=6,
+                                       font=("Segoe UI", 10, "bold"))
+            btn_asignar.pack(side=ctk.LEFT, fill=ctk.X, expand=True)
+    
+    def crear_pestaña_entradas(self):
+        """Crea pestaña de entradas"""
+        frame = self.notebook.add("Entradas")
+        frame.configure(fg_color=FONDO)
+        
+        card = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner = ctk.CTkFrame(card, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner, text="Registrar Entrada",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 15))
+        
+        ctk.CTkLabel(inner, text="Producto:", text_color=TEXTO).pack(anchor="w")
+        self.combo_producto_entrada = ctk.CTkComboBox(inner, height=35, corner_radius=6)
+        self.combo_producto_entrada.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Cantidad:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_cantidad_entrada = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_cantidad_entrada.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Precio Unitario:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_precio_entrada = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_precio_entrada.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Proveedor:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_proveedor = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_proveedor.pack(fill=ctk.X, pady=(0, 15))
+        
+        btn = ctk.CTkButton(inner, text="Registrar Entrada",
+                           command=self.registrar_entrada,
+                           fg_color=PRINCIPAL,
+                           hover_color="#0D5C5F",
+                           text_color="white",
+                           height=40,
+                           corner_radius=8,
+                           font=("Segoe UI", 11, "bold"))
+        btn.pack(fill=ctk.X)
+        
+        card2 = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card2.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+        
+        inner2 = ctk.CTkFrame(card2, fg_color=TARJETA)
+        inner2.pack(fill=ctk.BOTH, expand=True, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner2, text="Historial de Entradas",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 10))
+        
+        from tkinter import ttk
+        columnas = ("ID", "Producto", "Cantidad", "Precio", "Proveedor", "Fecha")
+        self.tabla_entradas = ttk.Treeview(inner2, columns=columnas, height=10)
+        
+        for col in columnas:
+            self.tabla_entradas.column(col, anchor="center", width=120)
+            self.tabla_entradas.heading(col, text=col)
+        
+        self.tabla_entradas.pack(fill=ctk.BOTH, expand=True)
+    
+    def crear_pestaña_salidas(self):
+        """Crea pestaña de salidas"""
+        frame = self.notebook.add("Salidas")
+        frame.configure(fg_color=FONDO)
+        
+        card = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner = ctk.CTkFrame(card, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner, text="Registrar Salida",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 15))
+        
+        ctk.CTkLabel(inner, text="Producto:", text_color=TEXTO).pack(anchor="w")
+        self.combo_producto_salida = ctk.CTkComboBox(inner, height=35, corner_radius=6)
+        self.combo_producto_salida.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Cantidad:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_cantidad_salida = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_cantidad_salida.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Cliente:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_cliente = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_cliente.pack(fill=ctk.X, pady=(0, 15))
+        
+        btn_frame = ctk.CTkFrame(inner, fg_color=TARJETA)
+        btn_frame.pack(fill=ctk.X)
+        
+        btn1 = ctk.CTkButton(btn_frame, text="Salida Sin Factura",
+                            command=self.registrar_salida,
+                            fg_color=SECUNDARIO,
+                            hover_color="#8B92A8",
+                            text_color="white",
+                            height=40,
+                            corner_radius=8,
+                            font=("Segoe UI", 10, "bold"))
+        btn1.pack(side=ctk.LEFT, padx=(0, 8), fill=ctk.X, expand=True)
+        
+        btn2 = ctk.CTkButton(btn_frame, text="Crear Factura",
+                            command=self.crear_factura_desde_salida,
+                            fg_color=PRINCIPAL,
+                            hover_color="#0D5C5F",
+                            text_color="white",
+                            height=40,
+                            corner_radius=8,
+                            font=("Segoe UI", 10, "bold"))
+        btn2.pack(side=ctk.LEFT, fill=ctk.X, expand=True)
+        
+        card2 = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card2.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+        
+        inner2 = ctk.CTkFrame(card2, fg_color=TARJETA)
+        inner2.pack(fill=ctk.BOTH, expand=True, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner2, text="Historial de Salidas",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 10))
+        
+        from tkinter import ttk
+        columnas = ("ID", "Producto", "Cantidad", "Cliente", "Fecha")
+        self.tabla_salidas = ttk.Treeview(inner2, columns=columnas, height=10)
+        
+        for col in columnas:
+            self.tabla_salidas.column(col, anchor="center", width=150)
+            self.tabla_salidas.heading(col, text=col)
+        
+        self.tabla_salidas.pack(fill=ctk.BOTH, expand=True)
+    
+    def crear_pestaña_facturas(self):
+        """Crea pestaña de facturas"""
+        frame = self.notebook.add("Facturas")
+        frame.configure(fg_color=FONDO)
+        
+        card = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner = ctk.CTkFrame(card, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner, text="Nueva Factura",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 15))
+        
+        ctk.CTkLabel(inner, text="Cliente:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_factura_cliente = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_factura_cliente.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="NIT:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_factura_nit = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_factura_nit.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Email:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_factura_email = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_factura_email.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner, text="Telefono:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_factura_telefono = ctk.CTkEntry(inner, height=35, corner_radius=6)
+        self.entrada_factura_telefono.pack(fill=ctk.X, pady=(0, 15))
+        
+        btn = ctk.CTkButton(inner, text="Nueva Factura",
+                           command=self.nueva_factura,
+                           fg_color=PRINCIPAL,
+                           hover_color="#0D5C5F",
+                           text_color="white",
+                           height=40,
+                           corner_radius=8,
+                           font=("Segoe UI", 11, "bold"))
+        btn.pack(fill=ctk.X)
+        
+        card2 = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card2.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner2 = ctk.CTkFrame(card2, fg_color=TARJETA)
+        inner2.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner2, text="Agregar Productos a Factura",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 15))
+        
+        ctk.CTkLabel(inner2, text="Producto:", text_color=TEXTO).pack(anchor="w")
+        self.combo_producto_factura = ctk.CTkComboBox(inner2, height=35, corner_radius=6)
+        self.combo_producto_factura.pack(fill=ctk.X, pady=(0, 10))
+        
+        ctk.CTkLabel(inner2, text="Cantidad:", text_color=TEXTO).pack(anchor="w")
+        self.entrada_cantidad_factura = ctk.CTkEntry(inner2, height=35, corner_radius=6)
+        self.entrada_cantidad_factura.pack(fill=ctk.X, pady=(0, 15))
+        
+        btn_frame = ctk.CTkFrame(inner2, fg_color=TARJETA)
+        btn_frame.pack(fill=ctk.X)
+        
+        btn1 = ctk.CTkButton(btn_frame, text="Agregar",
+                            command=self.agregar_producto_factura,
+                            fg_color=PRINCIPAL,
+                            hover_color="#0D5C5F",
+                            text_color="white",
+                            height=35,
+                            corner_radius=6,
+                            font=("Segoe UI", 10, "bold"))
+        btn1.pack(side=ctk.LEFT, padx=(0, 5), fill=ctk.X, expand=True)
+        
+        btn2 = ctk.CTkButton(btn_frame, text="Ver",
+                            command=self.ver_factura_actual,
+                            fg_color=SECUNDARIO,
+                            hover_color="#8B92A8",
+                            text_color="white",
+                            height=35,
+                            corner_radius=6,
+                            font=("Segoe UI", 10, "bold"))
+        btn2.pack(side=ctk.LEFT, padx=(0, 5), fill=ctk.X, expand=True)
+        
+        btn3 = ctk.CTkButton(btn_frame, text="Finalizar",
+                            command=self.finalizar_factura,
+                            fg_color="#DC2626",
+                            hover_color="#B91C1C",
+                            text_color="white",
+                            height=35,
+                            corner_radius=6,
+                            font=("Segoe UI", 10, "bold"))
+        btn3.pack(side=ctk.LEFT, fill=ctk.X, expand=True)
+        
+        card3 = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card3.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+        
+        inner3 = ctk.CTkFrame(card3, fg_color=TARJETA)
+        inner3.pack(fill=ctk.BOTH, expand=True, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner3, text="Listado de Facturas",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 10))
+        
+        from tkinter import ttk
+        columnas = ("Numero", "Cliente", "Fecha", "Total", "Estado")
+        self.tabla_facturas = ttk.Treeview(inner3, columns=columnas, height=8)
+        
+        for col in columnas:
+            self.tabla_facturas.column(col, anchor="center", width=150)
+            self.tabla_facturas.heading(col, text=col)
+        
+        self.tabla_facturas.pack(fill=ctk.BOTH, expand=True)
+        self.tabla_facturas.bind("<Double-1>", self.ver_factura_seleccionada)
+    
+    def crear_pestaña_reportes(self):
+        """Crea pestaña de reportes"""
+        frame = self.notebook.add("Reportes")
+        frame.configure(fg_color=FONDO)
+        
+        # Estadísticas
+        card = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner = ctk.CTkFrame(card, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner, text="Estadisticas General",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 10))
+        
+        self.label_stats = ctk.CTkLabel(inner, text="",
+                                       font=("Segoe UI", 10),
+                                       text_color=TEXTO,
+                                       justify="left")
+        self.label_stats.pack(anchor="w", fill=ctk.X)
+        
+        # Bajo stock
+        card2 = ctk.CTkFrame(frame, fg_color=TARJETA, corner_radius=10)
+        card2.pack(fill=ctk.X, padx=10, pady=10)
+        
+        inner2 = ctk.CTkFrame(card2, fg_color=TARJETA)
+        inner2.pack(fill=ctk.BOTH, padx=15, pady=15)
+        
+        ctk.CTkLabel(inner2, text="Productos Bajo Stock",
+                    font=("Segoe UI", 12, "bold"),
+                    text_color=TEXTO).pack(anchor="w", pady=(0, 10))
+        
+        from tkinter import ttk
+        columnas = ("ID", "Nombre", "Stock", "Minimo")
+        self.tabla_bajo_stock = ttk.Treeview(inner2, columns=columnas, height=6)
+        
+        for col in columnas:
+            self.tabla_bajo_stock.column(col, anchor="center", width=150)
+            self.tabla_bajo_stock.heading(col, text=col)
+        
+        self.tabla_bajo_stock.pack(fill=ctk.X)
+        
+        # Botón
+        btn = ctk.CTkButton(frame, text="Actualizar",
+                           command=self.actualizar_datos,
+                           fg_color=PRINCIPAL,
+                           hover_color="#0D5C5F",
+                           text_color="white",
+                           height=40,
+                           corner_radius=8,
+                           font=("Segoe UI", 11, "bold"))
+        btn.pack(padx=10, pady=10, fill=ctk.X)
+    
+    # Métodos de funcionalidad
+    def crear_producto(self):
+        nombre = self.entrada_nombre.get().strip()
+        precio_str = self.entrada_precio.get().strip()
+        stock_str = self.entrada_stock.get().strip()
+        stock_min_str = self.entrada_stock_min.get().strip()
+        
+        if not nombre or not precio_str:
+            messagebox.showerror("Error", "Complete nombre y precio")
+            return
+        
+        try:
+            precio = float(precio_str)
+            stock = int(stock_str) if stock_str else 0
+            stock_min = int(stock_min_str) if stock_min_str else 10
+            
+            if self.logica.crear_producto(nombre, precio, stock, stock_min):
+                messagebox.showinfo("Exito", "Producto creado correctamente")
+                self.entrada_nombre.delete(0, ctk.END)
+                self.entrada_precio.delete(0, ctk.END)
+                self.entrada_stock.delete(0, ctk.END)
+                self.entrada_stock.insert(0, "0")
+                self.entrada_stock_min.delete(0, ctk.END)
+                self.entrada_stock_min.insert(0, "10")
+                
+                # Actualizar inmediatamente
+                try:
+                    self.actualizar_datos()
+                    print("✓ Datos actualizados correctamente después de crear producto")
+                except Exception as e:
+                    print(f"✗ Error actualizando datos: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    messagebox.showerror("Error", f"Error actualizando tabla:\n{str(e)}")
+            else:
+                messagebox.showerror("Error", "No se pudo crear el producto")
+        except ValueError:
+            messagebox.showerror("Error", "Precio y stock deben ser numeros")
+    
+    def actualizar_stock_admin_display(self, *args):
+        """Actualiza el display del stock actual cuando cambia el combo"""
+        producto_str = self.combo_admin_producto.get()
+        if not producto_str:
+            self.label_stock_actual.configure(text="Stock Actual: -")
+            return
+        
+        try:
+            producto_id = int(producto_str.split(" ")[0])
+            producto = self.logica.obtener_producto(producto_id)
+            if producto:
+                self.label_stock_actual.configure(
+                    text=f"Stock Actual: {producto['stock']} unidades"
+                )
+            else:
+                self.label_stock_actual.configure(text="Stock Actual: -")
+        except:
+            self.label_stock_actual.configure(text="Stock Actual: -")
+    
+    def admin_agregar_stock(self):
+        """Agrega cantidad al stock del producto seleccionado"""
+        if not self.logica.es_administrador():
+            messagebox.showerror("Acceso Denegado", "Solo administrador puede modificar stock")
+            return
+        
+        producto_str = self.combo_admin_producto.get()
+        cantidad_str = self.entrada_admin_cantidad.get().strip()
+        
+        if not producto_str or not cantidad_str:
+            messagebox.showerror("Error", "Seleccione producto e ingrese cantidad")
+            return
+        
+        try:
+            producto_id = int(producto_str.split(" ")[0])
+            cantidad = int(cantidad_str)
+            
+            if cantidad <= 0:
+                messagebox.showerror("Error", "La cantidad debe ser mayor a 0")
+                return
+            
+            if self.logica.agregar_stock_manual(producto_id, cantidad):
+                messagebox.showinfo("Exito", f"Se agregaron {cantidad} unidades")
+                self.entrada_admin_cantidad.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "No se pudo agregar stock")
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad debe ser un número")
+    
+    def admin_quitar_stock(self):
+        """Quita cantidad del stock del producto seleccionado"""
+        if not self.logica.es_administrador():
+            messagebox.showerror("Acceso Denegado", "Solo administrador puede modificar stock")
+            return
+        
+        producto_str = self.combo_admin_producto.get()
+        cantidad_str = self.entrada_admin_cantidad.get().strip()
+        
+        if not producto_str or not cantidad_str:
+            messagebox.showerror("Error", "Seleccione producto e ingrese cantidad")
+            return
+        
+        try:
+            producto_id = int(producto_str.split(" ")[0])
+            cantidad = int(cantidad_str)
+            
+            if cantidad <= 0:
+                messagebox.showerror("Error", "La cantidad debe ser mayor a 0")
+                return
+            
+            if self.logica.quitar_stock_manual(producto_id, cantidad):
+                messagebox.showinfo("Exito", f"Se quitaron {cantidad} unidades")
+                self.entrada_admin_cantidad.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "Stock insuficiente o error en la operación")
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad debe ser un número")
+    
+    def admin_asignar_stock(self):
+        """Asigna un valor específico al stock del producto"""
+        if not self.logica.es_administrador():
+            messagebox.showerror("Acceso Denegado", "Solo administrador puede modificar stock")
+            return
+        
+        producto_str = self.combo_admin_producto.get()
+        stock_str = self.entrada_admin_stock_directo.get().strip()
+        
+        if not producto_str or not stock_str:
+            messagebox.showerror("Error", "Seleccione producto e ingrese stock")
+            return
+        
+        try:
+            producto_id = int(producto_str.split(" ")[0])
+            stock_nuevo = int(stock_str)
+            
+            if stock_nuevo < 0:
+                messagebox.showerror("Error", "El stock no puede ser negativo")
+                return
+            
+            if self.logica.cambiar_stock_manual(producto_id, stock_nuevo):
+                messagebox.showinfo("Exito", f"Stock asignado a {stock_nuevo} unidades")
+                self.entrada_admin_stock_directo.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "No se pudo asignar el stock")
+        except ValueError:
+            messagebox.showerror("Error", "Stock debe ser un número")
+    
+    def registrar_entrada(self):
+        producto_id_str = self.combo_producto_entrada.get()
+        cantidad_str = self.entrada_cantidad_entrada.get().strip()
+        precio_str = self.entrada_precio_entrada.get().strip()
+        proveedor = self.entrada_proveedor.get().strip()
+        
+        if not producto_id_str or not cantidad_str or not precio_str:
+            messagebox.showerror("Error", "Complete todos los campos requeridos")
+            return
+        
+        try:
+            producto_id = int(producto_id_str.split(" ")[0])
+            cantidad = int(cantidad_str)
+            precio = float(precio_str)
+            
+            if self.logica.registrar_entrada(producto_id, cantidad, precio, proveedor):
+                messagebox.showinfo("Exito", "Entrada registrada correctamente")
+                self.entrada_cantidad_entrada.delete(0, ctk.END)
+                self.entrada_precio_entrada.delete(0, ctk.END)
+                self.entrada_proveedor.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "No se pudo registrar la entrada")
+        except ValueError:
+            messagebox.showerror("Error", "Verifique cantidad y precio")
+    
+    def registrar_salida(self):
+        producto_id_str = self.combo_producto_salida.get()
+        cantidad_str = self.entrada_cantidad_salida.get().strip()
+        cliente = self.entrada_cliente.get().strip()
+        
+        if not producto_id_str or not cantidad_str:
+            messagebox.showerror("Error", "Complete todos los campos")
+            return
+        
+        try:
+            producto_id = int(producto_id_str.split(" ")[0])
+            cantidad = int(cantidad_str)
+            
+            if self.logica.registrar_salida(producto_id, cantidad, cliente):
+                messagebox.showinfo("Exito", "Salida registrada correctamente")
+                self.entrada_cantidad_salida.delete(0, ctk.END)
+                self.entrada_cliente.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "Stock insuficiente o error en salida")
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad debe ser un numero")
+    
+    def nueva_factura(self):
+        cliente = self.entrada_factura_cliente.get().strip()
+        nit = self.entrada_factura_nit.get().strip()
+        email = self.entrada_factura_email.get().strip()
+        telefono = self.entrada_factura_telefono.get().strip()
+        
+        if not cliente:
+            messagebox.showerror("Error", "Ingrese nombre del cliente")
+            return
+        
+        factura_id = self.logica.crear_nueva_factura(cliente, nit, email, telefono)
+        
+        if factura_id:
+            self.factura_actual = factura_id
+            messagebox.showinfo("Exito", f"Factura creada: {factura_id}")
+            self.entrada_cantidad_factura.delete(0, ctk.END)
+            self.entrada_cantidad_factura.focus()
+            self.actualizar_datos()
+        else:
+            messagebox.showerror("Error", "No se pudo crear factura")
+    
+    def crear_factura_desde_salida(self):
+        producto_id_str = self.combo_producto_salida.get()
+        cantidad_str = self.entrada_cantidad_salida.get().strip()
+        cliente = self.entrada_cliente.get().strip()
+        
+        if not producto_id_str or not cantidad_str or not cliente:
+            messagebox.showerror("Error", "Complete todos los campos")
+            return
+        
+        try:
+            producto_id = int(producto_id_str.split(" ")[0])
+            cantidad = int(cantidad_str)
+            
+            factura_id = self.logica.crear_nueva_factura(cliente)
+            if not factura_id:
+                messagebox.showerror("Error", "No se pudo crear factura")
+                return
+            
+            if self.logica.agregar_producto_factura(factura_id, producto_id, cantidad):
+                self.factura_actual = factura_id
+                messagebox.showinfo("Exito", "Factura creada con producto")
+                self.entrada_cantidad_salida.delete(0, ctk.END)
+                self.entrada_cliente.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "No se pudo agregar producto a factura")
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad debe ser un numero")
+    
+    def agregar_producto_factura(self):
+        if not self.factura_actual:
+            messagebox.showerror("Error", "Cree una factura primero")
+            return
+        
+        producto_id_str = self.combo_producto_factura.get()
+        cantidad_str = self.entrada_cantidad_factura.get().strip()
+        
+        if not producto_id_str or not cantidad_str:
+            messagebox.showerror("Error", "Seleccione producto y cantidad")
+            return
+        
+        try:
+            producto_id = int(producto_id_str.split(" ")[0])
+            cantidad = int(cantidad_str)
+            
+            if self.logica.agregar_producto_factura(self.factura_actual, producto_id, cantidad):
+                messagebox.showinfo("Exito", "Producto agregado a factura")
+                self.entrada_cantidad_factura.delete(0, ctk.END)
+                self.actualizar_datos()
+            else:
+                messagebox.showerror("Error", "No se pudo agregar producto")
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad debe ser un numero")
+    
+    def ver_factura_actual(self):
+        if not self.factura_actual:
+            messagebox.showerror("Error", "No hay factura abierta")
+            return
+        
+        self.mostrar_ventana_factura(self.factura_actual)
+    
+    def ver_factura_seleccionada(self, event):
+        seleccion = self.tabla_facturas.selection()
+        if not seleccion:
+            return
+        
+        item = seleccion[0]
+        numero_factura = self.tabla_facturas.item(item)['values'][0]
+        
+        facturas = self.logica.obtener_facturas()
+        for f in facturas:
+            if f['numero_factura'] == numero_factura:
+                self.mostrar_ventana_factura(f['id'])
+                break
+    
+    def mostrar_ventana_factura(self, factura_id):
+        texto_factura = self.generador_facturas.generar_texto_factura(factura_id)
+        
+        if not texto_factura:
+            messagebox.showerror("Error", "No se pudo generar factura")
+            return
+        
+        ventana = ctk.CTkToplevel(self)
+        ventana.title("Vista de Factura")
+        ventana.geometry("600x700")
+        ventana.configure(fg_color=FONDO)
+        
+        frame = ctk.CTkFrame(ventana, fg_color=TARJETA, corner_radius=10)
+        frame.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+        
+        inner = ctk.CTkFrame(frame, fg_color=TARJETA)
+        inner.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+        
+        texto_widget = scrolledtext.ScrolledText(inner, wrap="word", font=("Courier", 9),
+                                                bg=TARJETA, fg=TEXTO)
+        texto_widget.pack(fill=ctk.BOTH, expand=True)
+        texto_widget.insert("1.0", texto_factura)
+        texto_widget.config(state="disabled")
+        
+        frame_botones = ctk.CTkFrame(ventana, fg_color=FONDO)
+        frame_botones.pack(fill=ctk.X, padx=10, pady=10)
+        
+        factura = self.logica.obtener_factura(factura_id)
+        
+        btn1 = ctk.CTkButton(frame_botones, text="Guardar TXT",
+                            command=lambda: self.guardar_factura_txt(factura_id),
+                            fg_color=PRINCIPAL,
+                            hover_color="#0D5C5F",
+                            text_color="white",
+                            height=35,
+                            corner_radius=6)
+        btn1.pack(side=ctk.LEFT, padx=5, fill=ctk.X, expand=True)
+        
+        btn2 = ctk.CTkButton(frame_botones, text="Guardar HTML",
+                            command=lambda: self.guardar_factura_html(factura_id),
+                            fg_color=PRINCIPAL,
+                            hover_color="#0D5C5F",
+                            text_color="white",
+                            height=35,
+                            corner_radius=6)
+        btn2.pack(side=ctk.LEFT, padx=5, fill=ctk.X, expand=True)
+        
+        btn3 = ctk.CTkButton(frame_botones, text="Cerrar",
+                            command=ventana.destroy,
+                            fg_color=SECUNDARIO,
+                            hover_color="#8B92A8",
+                            text_color="white",
+                            height=35,
+                            corner_radius=6)
+        btn3.pack(side=ctk.LEFT, padx=5, fill=ctk.X, expand=True)
+    
+    def guardar_factura_txt(self, factura_id):
+        if self.generador_facturas.guardar_factura_txt(factura_id):
+            messagebox.showinfo("Exito", "Factura guardada en Facturas/")
+        else:
+            messagebox.showerror("Error", "No se pudo guardar factura")
+    
+    def guardar_factura_html(self, factura_id):
+        if self.generador_facturas.guardar_factura_html(factura_id):
+            messagebox.showinfo("Exito", "Factura guardada en Facturas/")
+        else:
+            messagebox.showerror("Error", "No se pudo guardar factura")
+    
+    def finalizar_factura(self):
+        if not self.factura_actual:
+            messagebox.showerror("Error", "No hay factura abierta")
+            return
+        
+        self.mostrar_ventana_factura(self.factura_actual)
+        self.factura_actual = None
+        messagebox.showinfo("Exito", "Factura finalizada")
+        self.actualizar_datos()
+    
+    def actualizar_datos(self):
+        """Actualiza todas las tablas y listas"""
+        print("\n>>> ACTUALIZANDO DATOS <<<")
+        
+        # ========== TABLA DE PRODUCTOS ==========
+        print("Actualizando tabla de productos...")
+        try:
+            if not hasattr(self, 'tabla_productos'):
+                print("  ✗ ERROR: tabla_productos NO EXISTE")
+                return
+            
+            print(f"  - Limpiando tabla...")
+            self.tabla_productos.delete(*self.tabla_productos.get_children())
+            
+            print(f"  - Obteniendo productos de la BD...")
+            productos = self.logica.obtener_productos()
+            print(f"  ✓ Se obtuvieron {len(productos)} productos")
+            
+            for p in productos:
+                estado = "OK" if p['stock'] >= p['stock_minimo'] else "BAJO"
+                print(f"    → Insertando: {p['nombre']} (ID: {p['id']}, Stock: {p['stock']})")
+                self.tabla_productos.insert("", "end", values=(
+                    p['id'], p['nombre'], f"${p['precio']:.2f}", 
+                    p['stock'], estado
+                ))
+            print(f"  ✓ Tabla de productos actualizada ({len(productos)} items)")
+        except Exception as e:
+            print(f"  ✗ ERROR en tabla de productos: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # ========== COMBOBOX DE PRODUCTOS ==========
+        print("Actualizando combobox de productos...")
+        try:
+            productos = self.logica.obtener_productos()
+            combo_items = [f"{p['id']} - {p['nombre']}" for p in productos]
+            
+            if hasattr(self, 'combo_producto_entrada'):
+                self.combo_producto_entrada.configure(values=combo_items)
+            if hasattr(self, 'combo_producto_salida'):
+                self.combo_producto_salida.configure(values=combo_items)
+            if hasattr(self, 'combo_producto_factura'):
+                self.combo_producto_factura.configure(values=combo_items)
+            
+            if hasattr(self, 'combo_admin_producto'):
+                self.combo_admin_producto.configure(values=combo_items)
+                try:
+                    self.combo_admin_producto.unbind("<FocusOut>")
+                except:
+                    pass
+                self.combo_admin_producto.bind("<FocusOut>", self.actualizar_stock_admin_display)
+                if self.combo_admin_producto.get():
+                    self.actualizar_stock_admin_display()
+            print(f"  ✓ Combobox actualizados")
+        except Exception as e:
+            print(f"  ✗ ERROR en combobox: {e}")
+        
+        # ========== TABLA DE ENTRADAS ==========
+        print("Actualizando tabla de entradas...")
+        try:
+            if hasattr(self, 'tabla_entradas'):
+                self.tabla_entradas.delete(*self.tabla_entradas.get_children())
+                entradas = self.logica.obtener_entradas()
+                for e in entradas[:10]:
+                    self.tabla_entradas.insert("", "end", values=(
+                        e['id'], e['nombre'], e['cantidad'],
+                        f"${e['precio_unitario']:.2f}", e['proveedor'] or "-", e['fecha'][:10]
+                    ))
+                print(f"  ✓ Tabla de entradas actualizada ({len(entradas)} items)")
+        except Exception as e:
+            print(f"  ✗ ERROR en tabla de entradas: {e}")
+        
+        # ========== TABLA DE SALIDAS ==========
+        print("Actualizando tabla de salidas...")
+        try:
+            if hasattr(self, 'tabla_salidas'):
+                self.tabla_salidas.delete(*self.tabla_salidas.get_children())
+                salidas = self.logica.obtener_salidas()
+                for s in salidas[:10]:
+                    self.tabla_salidas.insert("", "end", values=(
+                        s['id'], s['nombre'], s['cantidad'], 
+                        s['cliente'] or "-", s['fecha'][:10]
+                    ))
+                print(f"  ✓ Tabla de salidas actualizada ({len(salidas)} items)")
+        except Exception as e:
+            print(f"  ✗ ERROR en tabla de salidas: {e}")
+        
+        # ========== TABLA DE FACTURAS ==========
+        print("Actualizando tabla de facturas...")
+        try:
+            if hasattr(self, 'tabla_facturas'):
+                self.tabla_facturas.delete(*self.tabla_facturas.get_children())
+                facturas = self.logica.obtener_facturas()
+                for f in facturas:
+                    self.tabla_facturas.insert("", "end", values=(
+                        f['numero_factura'], f['cliente_nombre'],
+                        f['fecha'][:10], f"${f['total']:.2f}", f['estado']
+                    ))
+                print(f"  ✓ Tabla de facturas actualizada ({len(facturas)} items)")
+        except Exception as e:
+            print(f"  ✗ ERROR en tabla de facturas: {e}")
+        
+        # ========== TABLA DE BAJO STOCK ==========
+        print("Actualizando tabla de bajo stock...")
+        try:
+            if hasattr(self, 'tabla_bajo_stock'):
+                self.tabla_bajo_stock.delete(*self.tabla_bajo_stock.get_children())
+                bajo_stock = self.logica.productos_bajo_stock()
+                for p in bajo_stock:
+                    self.tabla_bajo_stock.insert("", "end", values=(
+                        p['id'], p['nombre'], p['stock'], p['stock_minimo']
+                    ))
+                print(f"  ✓ Tabla de bajo stock actualizada ({len(bajo_stock)} items)")
+        except Exception as e:
+            print(f"  ✗ ERROR en tabla de bajo stock: {e}")
+        
+        # ========== ESTADÍSTICAS ==========
+        print("Actualizando estadísticas...")
+        try:
+            if hasattr(self, 'label_stats'):
+                stats = self.logica.obtener_estadisticas()
+                stats_texto = f"""Productos: {stats['total_productos']} | Entradas: {stats['total_entradas']} | Salidas: {stats['total_salidas']} | Facturas: {stats['total_facturas']}
+Bajo Stock: {stats['productos_bajo_stock']} | Valor Inventario: ${stats['valor_inventario']:.2f}"""
+                self.label_stats.configure(text=stats_texto)
+                print(f"  ✓ Estadísticas actualizadas")
+        except Exception as e:
+            print(f"  ✗ ERROR en estadísticas: {e}")
+        
+        print(">>> ACTUALIZACIÓN COMPLETADA <<<\n")
+
+
+def main():
+    """Función principal"""
+    ventana_login = VentanaLogin()
+    ventana_login.mainloop()
+
+
+if __name__ == "__main__":
+    main()
