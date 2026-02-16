@@ -1,38 +1,57 @@
 """
-CAPA DE LÓGICA - Gestión de Inventario y Negocio
+CAPA DE LOGICA - Gestion de Inventario y Negocio (Optimizada)
 """
 
 from database import DatabaseManager
 from datetime import datetime
 
 class LogicaInventario:
-    """Clase con la lógica de negocio del inventario"""
+    """Clase con la logica de negocio del inventario"""
     
     def __init__(self):
         self.db = DatabaseManager()
         self.usuario_actual = None
     
-    # ==================== AUTENTICACIÓN ====================
-    def login(self, usuario, contraseña):
+    # ==================== VALIDACIONES ====================
+    @staticmethod
+    def _validar_cantidad(cantidad):
+        """Valida que cantidad sea positiva"""
+        return cantidad and cantidad > 0
+    
+    @staticmethod
+    def _validar_precio(precio):
+        """Valida que precio sea valido"""
+        # ✅ CORREGIDO: Cambiado 'price' por 'precio'
+        return precio >= 0 if precio is not None else False
+    
+    # ==================== AUTENTICACION ====================
+    def login(self, usuario, contrasena):
         """Autentica un usuario"""
-        resultado = self.db.verificar_usuario(usuario, contraseña)
+        resultado = self.db.verificar_usuario(usuario, contrasena)
         if resultado:
             self.usuario_actual = resultado
             return True
         return False
     
     def logout(self):
-        """Cierra sesión"""
+        """Cierra sesion"""
         self.usuario_actual = None
     
     def get_usuario_actual(self):
         """Obtiene datos del usuario actual"""
         return self.usuario_actual
     
+    def es_administrador(self):
+        """Verifica si el usuario actual es administrador"""
+        if not self.usuario_actual:
+            return False
+        return self.usuario_actual.get('nombre') == 'Administrador'
+    
     # ==================== PRODUCTOS ====================
     def crear_producto(self, nombre, precio, stock=0, stock_minimo=10, descripcion=None):
         """Crea un nuevo producto"""
-        if not nombre or precio < 0:
+        # ✅ MEJORADO: Ahora usa la validación de precio
+        if not nombre or not self._validar_precio(precio):
             return False
         
         producto_id = self.db.crear_producto(nombre, precio, stock, stock_minimo, descripcion)
@@ -59,14 +78,51 @@ class LogicaInventario:
         return self.db.obtener_stock(producto_id)
     
     def productos_bajo_stock(self):
-        """Retorna productos con stock por debajo del mínimo"""
+        """Retorna productos con stock por debajo del minimo"""
         productos = self.db.obtener_productos()
         return [p for p in productos if p['stock'] < p['stock_minimo']]
+    
+    def cambiar_stock_manual(self, producto_id, cantidad_nueva):
+        """Cambia el stock manualmente (solo administrador)"""
+        if not self.es_administrador() or cantidad_nueva < 0:
+            return False
+        
+        try:
+            self.db.establecer_stock(producto_id, cantidad_nueva)
+            return True
+        except Exception:
+            return False
+    
+    def _modificar_stock_admin(self, producto_id, cantidad, operacion):
+        """Modifica stock - abstraccion comun"""
+        if not self.es_administrador() or not self._validar_cantidad(cantidad):
+            return False
+        
+        if operacion == "quitar":
+            stock_actual = self.db.obtener_stock(producto_id)
+            if stock_actual < cantidad:
+                return False
+            cantidad = -cantidad
+        
+        try:
+            self.db.actualizar_stock(producto_id, cantidad)
+            return True
+        except Exception:
+            return False
+    
+    def agregar_stock_manual(self, producto_id, cantidad):
+        """Agrega cantidad al stock manualmente (solo administrador)"""
+        return self._modificar_stock_admin(producto_id, cantidad, "agregar")
+    
+    def quitar_stock_manual(self, producto_id, cantidad):
+        """Quita cantidad del stock manualmente (solo administrador)"""
+        return self._modificar_stock_admin(producto_id, cantidad, "quitar")
     
     # ==================== ENTRADAS ====================
     def registrar_entrada(self, producto_id, cantidad, precio_unitario, proveedor=None):
         """Registra una entrada de producto"""
-        if cantidad <= 0 or precio_unitario < 0:
+        # ✅ MEJORADO: Ahora usa la validación de precio
+        if not self._validar_cantidad(cantidad) or not self._validar_precio(precio_unitario):
             return False
         
         usuario_id = self.usuario_actual['id'] if self.usuario_actual else None
@@ -80,14 +136,14 @@ class LogicaInventario:
         return self.db.obtener_entradas()
     
     def obtener_entradas_producto(self, producto_id):
-        """Obtiene entradas de un producto específico"""
+        """Obtiene entradas de un producto especifico"""
         entradas = self.db.obtener_entradas()
         return [e for e in entradas if e['producto_id'] == producto_id]
     
     # ==================== SALIDAS ====================
     def registrar_salida(self, producto_id, cantidad, cliente=None):
         """Registra una salida de producto"""
-        if cantidad <= 0:
+        if not self._validar_cantidad(cantidad):
             return False
         
         producto = self.db.obtener_producto(producto_id)
@@ -106,7 +162,7 @@ class LogicaInventario:
         return self.db.obtener_salidas()
     
     def obtener_salidas_producto(self, producto_id):
-        """Obtiene salidas de un producto específico"""
+        """Obtiene salidas de un producto especifico"""
         salidas = self.db.obtener_salidas()
         return [s for s in salidas if s['producto_id'] == producto_id]
     
@@ -126,22 +182,17 @@ class LogicaInventario:
     
     def agregar_producto_factura(self, factura_id, producto_id, cantidad):
         """Agrega un producto a la factura"""
-        if cantidad <= 0:
+        if not self._validar_cantidad(cantidad):
             return False
         
         producto = self.db.obtener_producto(producto_id)
-        if not producto:
-            return False
-        
-        # Verificar stock
-        if producto['stock'] < cantidad:
+        if not producto or producto['stock'] < cantidad:
             return False
         
         usuario_id = self.usuario_actual['id'] if self.usuario_actual else None
         item_id = self.db.agregar_item_factura(factura_id, producto_id, cantidad, usuario_id)
         
         if item_id:
-            # Actualizar totales
             self.db.actualizar_totales_factura(factura_id)
             return True
         
@@ -167,7 +218,7 @@ class LogicaInventario:
         if not factura:
             return None
         
-        resumen = {
+        return {
             'numero': factura['numero_factura'],
             'fecha': factura['fecha'],
             'cliente': {
@@ -182,8 +233,6 @@ class LogicaInventario:
             'iva_valor': factura['iva_valor'],
             'total': factura['total']
         }
-        
-        return resumen
     
     # ==================== REPORTES ====================
     def reporte_movimientos_producto(self, producto_id):
@@ -195,39 +244,17 @@ class LogicaInventario:
         entradas = self.obtener_entradas_producto(producto_id)
         salidas = self.obtener_salidas_producto(producto_id)
         
-        total_entrada = sum(e['cantidad'] for e in entradas)
-        total_salida = sum(s['cantidad'] for s in salidas)
-        
         return {
             'producto': producto,
             'entradas': entradas,
             'salidas': salidas,
-            'total_entrada': total_entrada,
-            'total_salida': total_salida,
+            'total_entrada': sum(e['cantidad'] for e in entradas),
+            'total_salida': sum(s['cantidad'] for s in salidas),
             'stock_actual': producto['stock']
         }
     
-    def reporte_ventas_rango(self, fecha_inicio=None, fecha_fin=None):
-        """Genera reporte de ventas en un rango de fechas"""
-        facturas = self.db.obtener_facturas()
-        
-        # Filtrar por rango de fechas si se proporciona
-        if fecha_inicio or fecha_fin:
-            facturas = [f for f in facturas 
-                       if fecha_inicio <= f['fecha'] <= fecha_fin] if fecha_inicio and fecha_fin else facturas
-        
-        total_ventas = sum(f['total'] for f in facturas)
-        cantidad_facturas = len(facturas)
-        
-        return {
-            'cantidad_facturas': cantidad_facturas,
-            'total_ventas': total_ventas,
-            'promedio_factura': total_ventas / cantidad_facturas if cantidad_facturas > 0 else 0,
-            'facturas': facturas
-        }
-    
     def obtener_estadisticas(self):
-        """Obtiene estadísticas generales del inventario"""
+        """Obtiene estadisticas generales del inventario"""
         productos = self.db.obtener_productos()
         entradas = self.db.obtener_entradas()
         salidas = self.db.obtener_salidas()

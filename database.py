@@ -124,7 +124,7 @@ class DatabaseManager:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, nombre FROM usuarios WHERE usuario=? AND contraseña=?",
+            "SELECT id, usuario, nombre FROM usuarios WHERE usuario=? AND contraseña=?",
             (usuario, contraseña)
         )
         result = cursor.fetchone()
@@ -188,6 +188,17 @@ class DatabaseManager:
         cursor.execute(
             "UPDATE productos SET stock=stock+? WHERE id=?",
             (cantidad, producto_id)
+        )
+        conn.commit()
+        conn.close()
+    
+    def establecer_stock(self, producto_id, cantidad_nueva):
+        """Establece el stock de un producto a un valor específico (modo administrador)"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE productos SET stock=? WHERE id=?",
+            (cantidad_nueva, producto_id)
         )
         conn.commit()
         conn.close()

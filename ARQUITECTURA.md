@@ -38,10 +38,10 @@
 ├────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐   │
-│  │  Autenticación │  │   Productos │  │   Entradas  │  │   Salidas   │   │
-│  │  - login()     │  │  - crear()   │  │  - registrar│  │  -registrar │   │
-│  │  - logout()    │  │  - obtener() │  │  - obtener()│  │  -obtener() │   │
-│  │  - get_usuario │  │  - bajo_stock│  │             │  │             │   │
+│  │ Autenticación│  │   Productos  │  │   Entradas   │  │   Salidas   │   │
+│  │  - login()   │  │  - crear()   │  │  - registrar│  │  -registrar │   │
+│  │  - logout()  │  │  - obtener() │  │  - obtener()│  │  -obtener() │   │
+│  │- get_usuario │  │  - bajo_stock│  │             │  │             │   │
 │  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────┘   │
 │                                                                              │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                    │
@@ -67,14 +67,14 @@
 │  │ nombre       │  │ stock        │  │ precio_unit  │  │ precio_unit │   │
 │  │ email        │  │ stock_minimo │  │ proveedor    │  │ cliente     │   │
 │  └──────────────┘  └──────────────┘  │ fecha        │  │ fecha       │   │
-│                                        │ usuario_id   │  │ factura_id  │   │
-│  ┌──────────────┐                     └──────────────┘  └─────────────┘   │
+│                                      │ usuario_id   │  │ factura_id  │   │
+│  ┌──────────────┐                    └──────────────┘  └─────────────┘   │
 │  │   FACTURAS   │                                                          │
 │  ├──────────────┤                     ┌──────────────────────────┐        │
 │  │ id (PK)      │                     │  RELACIONES (FK)         │        │
 │  │ numero       │                     ├──────────────────────────┤        │
 │  │ fecha        │                     │ producto_id → productos  │        │
-│  │ cliente_nombre                    │ usuario_id → usuarios    │        │
+│  │ cliente_nombre                   n │ usuario_id → usuarios    │        │
 │  │ cliente_nit  │                     │ factura_id → facturas    │        │
 │  │ subtotal     │                     └──────────────────────────┘        │
 │  │ iva_valor    │                                                          │
