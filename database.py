@@ -1,6 +1,6 @@
 """
 CAPA DE DATOS - Gestión de Base de Datos SQLite
-"""
+"""     
 
 import sqlite3
 import os
