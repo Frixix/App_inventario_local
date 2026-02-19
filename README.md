@@ -254,20 +254,7 @@ Para cambios o mejoras, modifique los archivos correspondientes:
 - **Base de datos**: `database.py`
 - **Facturas**: `facturas.py`
 
----
 
-##  Checklist de Implementación
-
-✅ Sistema de login con usuario/contraseña  
-✅ Gestión de productos (CRUD)  
-✅ Módulo de entradas  
-✅ Módulo de salidas  
-✅ Stock automático  
-✅ Generación de facturas  
-✅ Parámetros de factura electrónica  
-✅ Base de datos SQLite  
-✅ Interfaz de 3 capas  
-✅ Exportación de facturas (TXT/HTML)  
 
 ---
 
